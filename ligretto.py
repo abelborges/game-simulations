@@ -113,7 +113,7 @@ class Player:
         ones = []
         for idx, card in enumerate(self.row):
             if card.number == 1:
-                ones.append(row.pop(i))
+                ones.append(row.pop(idx))
                 self.track(MOVE_PLAY_ROW_ONES, card)
         
         for one in ones:
@@ -129,7 +129,8 @@ class Player:
     def play(self, table):
         row_playable = [c for c in self.row if c.number == 1 or \
             len([t for t in table if c.is_next(t)]) > 0]
-        hand_is_playable = len([t for t in table if self.hand_top.is_next(t)]) > 0
+        hand_is_playable = len([t for t in table \
+			if self.hand_top.is_next(t)]) > 0
         
         if len(row_playable) > 0:
             best = best_to_play(row_playable)
@@ -141,8 +142,8 @@ class Player:
             self.track(MOVE_PLAY_HAND, self.hand.pop(self.hand_idx).pop())
             self.next_card()
             return DECK_HAND
-         else:
-             return None
+        else:
+            return None
 
 class Pile:
     
@@ -188,7 +189,7 @@ class Table:
     def add_card(self, pile_id):
         pile = self.piles[pile_id]
         pile.update()
-        self.piles(pile_id) = pile
+        self.piles[pile_id] = pile
 
 
 class Game:
@@ -215,18 +216,18 @@ def game_play(players):
             for card in ones:
                 game.table.create_pile(card.color)
     
-    while not game.ligretto:
-        # ...
+    # while not game.ligretto:
     
-    return
+    return 0
 
 if __name__ == '__main__':
     
     players = []
-    players.append(Player('A', 1.5, 2))
-    players.append(Player('B', 1.5, 2))
-    players.append(Player('C', 1.5, 2))
-    players.append(Player('D', 1.5, 2))
+    players.append(Player('A', 0.5, 0.5, 0.5, 0.5))
+    players.append(Player('B', 1.0, 1.0, 1.0, 1.0))
+    players.append(Player('C', 1.5, 1.5, 1.5, 1.5))
+    players.append(Player('D', 2.0, 2.0, 2.0, 2.0))
     
-    game_play(players)
+    for player in players:
+	    print(player.id)
 

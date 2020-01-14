@@ -1,6 +1,7 @@
 from math import floor, ceil
 from random import shuffle, expovariate as rexp
 from functools import reduce
+import sys
 
 CARDS_TOTAL = 40
 CARDS_PER_COLOR = 10
@@ -20,14 +21,8 @@ class Card:
     
     def __init__(self, id):
         self.id = id
-    
-    @property
-    def color(self):
-        return floor(self.id / CARDS_PER_COLOR)
-    
-    @property
-    def number(self):
-        return self.id % CARDS_PER_COLOR + 1
+        self.color = floor(self.id / CARDS_PER_COLOR)
+        self.number = self.id % CARDS_PER_COLOR + 1
     
     def equals(self, card):
         return self.id == card.id
@@ -43,14 +38,14 @@ class Card:
         else:
             return Card(self.id + 1)
 
-def deck_init(total=CARDS_TOTAL, n_row=CARDS_IN_ROW, n_pile=CARDS_IN_PILE):
-    deck = [Card(i) for i in range(total)]
+def deck_init(n_total=CARDS_TOTAL, n_row=CARDS_IN_ROW, n_pile=CARDS_IN_PILE):
+    deck = [Card(i) for i in range(n_total)]
     shuffle(deck)
-    return {
-        DECK_ROW: deck[:n_row],
-        DECK_PILE: deck[n_row:(n_row + n_pile)],
-        DECK_HAND: deck[(n_row + n_pile):]
-    }
+    i = n_row + n_pile
+    row = deck[:n_row]
+    pile = deck[n_row:i]
+    hand = deck[i:]
+    return row, pile, hand
 
 def best_to_play(cards):
     if len(cards) < 1 or cards is None:
@@ -62,51 +57,30 @@ class Player:
     
     def __init__(self, id, rate_next, rate_shuffle, rate_realize, rate_replace):
         self.id = id
-        self.rate_next = rate_next
-        self.rate_shuffle = rate_shuffle
-        self.rate_realize = rate_realize
-        self.rate_replace = rate_replace
+        self.deltat = {
+            MOVE_PLAY_ROW_ONES: lambda: 0.0,
+            MOVE_NEXT: lambda: rexp(rate_next),
+            MOVE_NEXT_AND_SHUFFLE: lambda: rexp(rate_next) + rexp(rate_shuffle),
+            MOVE_PLAY_ROW: lambda: rexp(rate_realize) + rexp(rate_replace),
+            MOVE_PLAY_HAND: lambda: rexp(rate_realize)
+        }
         self.history = []
-        
-        deck = deck_init()
-        self.row = deck[DECK_ROW]
-        self.pile = deck[DECK_PILE]
-        self.hand = deck[DECK_HAND]
+        self.row, self.pile, self.hand = deck_init()
         self.hand_idx = -1
     
     @property
+    def hand_top(self):
+        return self.hand[self.hand_idx]
+    
     def ligretto(self):
         return len(self.ten) == 0
     
-    def time_delta(self, move):
-        switcher = {
-            MOVE_PLAY_ROW_ONES: lambda: 0.0,
-            MOVE_NEXT: lambda: rexp(self.rate_next),
-            MOVE_NEXT_AND_SHUFFLE: lambda: rexp(self.rate_next) + rexp(self.rate_shuffle),
-            MOVE_PLAY_ROW: lambda: rexp(self.rate_realize) + rexp(self.rate_replace),
-            MOVE_PLAY_HAND: lambda: rexp(self.rate_realize)
-        }
-        return switcher.get(move)()
-    
     def track(self, move, card):
         self.history.append({
-            'time': self.history[-1].time + self.time_delta(move),
+            'time': self.history[-1].time + self.deltat.get(move)(),
             'move': move,
             'card': card
         })
-    
-    def next_card(self):
-        if self.hand_idx == len(self.hand) - 1:
-            shuffle(self.hand)
-            idx = CARDS_PER_HAND_NEXT - 1
-            move = MOVE_NEXT_AND_SHUFFLE
-        else:
-            idx = self.hand_idx + CARDS_PER_HAND_NEXT
-            idx = idx if idx < len(self.hand) else len(self.hand) - 1
-            move = MOVE_NEXT
-        self.hand_idx = idx
-        self.track(move, self.hand[idx])
-        return self.hand[idx]
     
     def play_row_ones(self):
         row = self.row.copy()
@@ -122,33 +96,55 @@ class Player:
         self.row = row
         return ones
     
-    @property
-    def hand_top(self):
-        return self.hand[self.hand_idx]
+    def hand_next(self):
+        if self.hand_idx == len(self.hand) - 1:
+            shuffle(self.hand)
+            idx = CARDS_PER_HAND_NEXT - 1
+            move = MOVE_NEXT_AND_SHUFFLE
+        else:
+            idx = self.hand_idx + CARDS_PER_HAND_NEXT
+            idx = idx if idx < len(self.hand) else len(self.hand) - 1
+            move = MOVE_NEXT
+        self.hand_idx = idx
+        self.track(move, self.hand_top)
+        return self.hand_top
+    
+    def playable(self, table):
+        row = [c for c in self.row if c.number == 1 or \
+            len([t for t in table if c.is_next(t)]) > 0]
+        
+        hand_is_playable = False
+        for card in table:
+            if self.hand_top.is_next(card):
+                hand_is_playable = True
+                break
+        
+        return row, (self.hand_top if hand_is_playable else None)
     
     def play(self, table):
-        row_playable = [c for c in self.row if c.number == 1 or \
-            len([t for t in table if c.is_next(t)]) > 0]
-        hand_is_playable = len([t for t in table \
-			if self.hand_top.is_next(t)]) > 0
+        row, hand = self.playable(table)
         
-        if len(row_playable) > 0:
-            best = best_to_play(row_playable)
-            idx = [c.id for c  in self.row].index(best.id)
+        if len(row) > 0:
+            card = best_to_play(row)
+            idx = [c.id for c in self.row].index(card.id)
             self.track(MOVE_PLAY_ROW, self.row.pop(idx))
             self.row.append(self.ten.pop())
-            return DECK_ROW
-        elif hand_is_playable:
-            self.track(MOVE_PLAY_HAND, self.hand.pop(self.hand_idx).pop())
-            self.next_card()
-            return DECK_HAND
+            return DECK_ROW, card
+        elif hand is not None:
+            card = self.hand.pop(self.hand_idx)
+            self.track(MOVE_PLAY_HAND, card)
+            self.hand_next()
+            return DECK_HAND, card
         else:
-            return None
+            return None, None
 
 class Pile:
     
     def __init__(self, color):
         self.card = Card(color * CARDS_PER_COLOR)
+    
+    def __len__(self):
+        return self.card.number
     
     @property
     def color(self):
@@ -165,18 +161,17 @@ class Pile:
     def update(self):
         if self.is_open:
             self.card.id += 1
-    
+
 class Table:
     
     def __init__(self):
         self.piles = []
     
-    @property
-    def length(self):
+    def __len__(self):
         return len(self.piles)
     
     @property
-    def top_cards(self):
+    def cards(self):
         def reducer(acc, pile):
             if pile.is_open:
                 acc.append(pile.card)
@@ -186,18 +181,17 @@ class Table:
     def create_pile(self, color):
         self.piles.append(Pile(color))
     
-    def add_card(self, pile_id):
+    def add_card_to(self, pile_id):
         pile = self.piles[pile_id]
         pile.update()
         self.piles[pile_id] = pile
-
 
 class Game:
     
     def __init__(self, players):
         self.players = players
         self.table = Table()
-        self.clock = 0.0
+        self.history = []
     
     @property
     def ligretto(self):
@@ -216,9 +210,9 @@ def game_play(players):
             for card in ones:
                 game.table.create_pile(card.color)
     
-    # while not game.ligretto:
-    
-    return 0
+    while not game.ligretto:
+        for player in players:
+            pile_id = player.play(game.table.cards)
 
 if __name__ == '__main__':
     

@@ -2,8 +2,6 @@ from math import floor
 import random
 import pandas
 
-# TODO: 
-
 CARDS_BASIC = "basic"
 CARDS_PLUS_2 = "plus-2"
 CARDS_DIRECTION = "change-direction"
@@ -69,13 +67,13 @@ class Card:
     
     def _type(self):
         n = 0
-        for length, card_type in enumerate(LENGTHS):
+        for _, card_type in enumerate(LENGTHS):
             n += LENGTHS[card_type]
             if self.id < n:
                 return card_type
     
     def _color(self):
-        if self.type in CARDS_JOKERS:
+        if self.is_joker():
             return None
         else:
             return COLORS[self.id % N_COLORS]
@@ -92,13 +90,13 @@ class Card:
         return self.type in CARDS_JOKERS
     
     def playable(self, table, color=None):
-        if self.type in CARDS_JOKERS:
+        if self.is_joker():
             return True
         elif table.type == CARDS_BASIC:
             return table.color == self.color or table.number == self.number
         elif table.type in [CARDS_DIRECTION, CARDS_SKIP]:
             return table.color == self.color
-        elif table.type == CARDS_JOKERS:
+        elif table.type in CARDS_JOKERS:
             return self.color == color
         elif table.type == CARDS_PLUS_2:
             return self.type == CARDS_PLUS_2 or self.color == table.color
@@ -127,7 +125,7 @@ class Player:
         """
         
         playable = self.playable(table, color)
-        if len(playable) == 0:
+        if not playable:
             return None
         
         criteria = lambda c: c.is_joker()
@@ -140,9 +138,9 @@ class Player:
         self.cards.remove(card)
         return card
     
-    def play_plus2(self):
+    def play_plus2(self, buy):
         plus2 = [c for c in self.cards if c.type == CARDS_PLUS_2]
-        if len(plus2) == 0:
+        if not plus2:
             return None
         else:
             p2 = random.choice(plus2)
@@ -186,14 +184,14 @@ class Game:
             "card_color": table.color if table.color is not None else None,
             "card_number": table.number if table.number is not None else -1
         }]
-        self.n_cards = [(p.id, len(p.cards)) for p in players]
     
     @property
     def h(self):
         return pandas.DataFrame(self.history)
     
-    def update_n_cards(self):
-        self.n_cards = [(p.id, len(p.cards)) for p in self.players]
+    @property
+    def n_cards(self):
+        return [(p.id, len(p.cards)) for p in self.players]
     
     def table_top(self):
         return self.table[-1]
@@ -228,12 +226,11 @@ class Game:
             self.buy_cards()
             
             self.update_player()
-            self.color = None
         else:
             self.table.append(card)
             self.update_player(NEXT_PLAYER.get(card.type, 1))
             self.buy = BUYS.get(card.type, 0)
-            self.color = player.pick_color() if card.type in CARDS_JOKERS else None
+            self.color = player.pick_color() if card.is_joker() else None
         return card
     
     def play_plus2(self):
@@ -247,7 +244,6 @@ class Game:
             else:
                 self.buy_cards()
             self.update_player()
-            self.color = None
         else:
             card = self.play_simple()
         return card
@@ -301,7 +297,6 @@ class Game:
             card = self.play_simple()
         
         # ---------- debug -------------------
-        self.update_n_cards()
         self.history.append({
             "player_id": player.id,
             "card_id": card.id if card is not None else -1,
@@ -317,4 +312,3 @@ class Game:
             print(self.n_cards)
         
         return self.uno()
-

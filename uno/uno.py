@@ -28,15 +28,9 @@ N_CARDS = sum(LENGTHS.values())
 N_COLORS = 4
 CARDS_PER_PLAYER = 7
 CARDS_PER_COLOR = 2
-NEXT_PLAYER = {
-    CARDS_DIRECTION: -1,
-    CARDS_SKIP: 2
-}
 
-BUYS = {
-    CARDS_PLUS_2: 2,
-    CARDS_PLUS_4: 4
-}
+def buys(card):
+    return {CARDS_PLUS_2: 2, CARDS_PLUS_4: 4}.get(card.type, 0)
 
 class Card:
     
@@ -89,7 +83,7 @@ class Card:
     def is_joker(self):
         return self.type in CARDS_JOKERS
     
-    def playable(self, table, color=None):
+    def is_playable(self, table, color=None):
         if self.is_joker():
             return True
         elif table.type == CARDS_BASIC:
@@ -107,15 +101,13 @@ class Player:
         self.id = id
         self.cards = cards
     
-    def uno(self):
-        return len(self.cards) == 0
+    def uno(self): return len(self.cards) == 0
     
     def buy(self, cards):
-        for card in cards:
-            self.cards.append(card)
+        for card in cards: self.cards.append(card)
     
     def playable(self, table, color):
-        return [c for c in self.cards if c.playable(table, color)]
+        return [c for c in self.cards if c.is_playable(table, color)]
     
     def play(self, table, color=None):
         """
@@ -125,8 +117,7 @@ class Player:
         """
         
         playable = self.playable(table, color)
-        if not playable:
-            return None
+        if not playable: return None
         
         criteria = lambda c: c.is_joker()
         playable.sort(key=criteria)
@@ -138,10 +129,9 @@ class Player:
         self.cards.remove(card)
         return card
     
-    def play_plus2(self, buy):
+    def play_plus2(self):
         plus2 = [c for c in self.cards if c.type == CARDS_PLUS_2]
-        if not plus2:
-            return None
+        if not plus2: return None
         else:
             p2 = random.choice(plus2)
             self.cards.remove(p2)
@@ -174,6 +164,7 @@ class Game:
         self.buy = 0
         self.color = None
         self.n_players = n_players
+        self.direction = 1
         
         # debug
         self.debug = debug
@@ -186,71 +177,72 @@ class Game:
         }]
     
     @property
-    def h(self):
-        return pandas.DataFrame(self.history)
+    def h(self): return pandas.DataFrame(self.history)
     
     @property
-    def n_cards(self):
-        return [(p.id, len(p.cards)) for p in self.players]
+    def n_cards(self): return [(p.id, len(p.cards)) for p in self.players]
     
-    def table_top(self):
-        return self.table[-1]
+    @property
+    def table_top(self): return self.table[-1]
     
-    def player(self):
-        return self.players[self.player_id]
+    @property
+    def player(self): return self.players[self.player_id]
+
+    def update_table(self):
+        old_table = self.table.copy()
+        random.shuffle(old_table)
+        self.cards = old_table
+        new_table = self.cards.pop()
+        self.table = [new_table]
     
     def buy_cards(self):
         bought = []
         for _ in range(self.buy):
             bought.append(self.cards.pop())
-            if not self.cards:
-                old_table = self.table.copy()
-                random.shuffle(old_table)
-                self.cards = old_table
-                new_table = self.cards.pop()
-                self.table = [new_table]
+            if not self.cards: self.update_table()
         
-        player = self.player()
-        player.buy(bought)
+        self.player.buy(bought)
         self.buy = 0
+        return bought
     
     def update_player(self, plus=1):
-        self.player_id = (self.player_id + plus) % self.n_players
+        self.player_id = (self.player_id + self.direction*plus) % self.n_players
+
+    def play(self, card):
+        self.direction *= (-1 if card.type == CARDS_DIRECTION else 1)
+        plus = 2 if card.type == CARDS_SKIP else 1
+        self.table.append(card)
+        self.update_player(plus)
+        self.buy = buys(card)
+        self.color = self.player.pick_color() if card.is_joker() else None
     
     def play_simple(self):
-        player = self.player()
-        card = player.play(self.table_top(), self.color)
+        card = self.player.play(self.table_top, self.color)
         
         if card is None:
             self.buy = 1
-            self.buy_cards()
-            
-            self.update_player()
-        else:
-            self.table.append(card)
-            self.update_player(NEXT_PLAYER.get(card.type, 1))
-            self.buy = BUYS.get(card.type, 0)
-            self.color = player.pick_color() if card.is_joker() else None
+            card = self.buy_cards().pop()
+            if card.is_playable(self.table_top, self.color):
+                self.play(card)
+            else:
+                self.update_player()
+        else: self.play(card)
         return card
     
     def play_plus2(self):
-        player = self.player()
+        player = self.player
         
         if self.buy:
             card = player.play_plus2()
             if card is not None:
                 self.table.append(card)
                 self.buy += 2
-            else:
-                self.buy_cards()
+            else: self.buy_cards()
             self.update_player()
-        else:
-            card = self.play_simple()
+        else: card = self.play_simple()
         return card
     
     def play_plus4(self):
-        player = self.player()
-        
         if self.buy:
             card = None
             self.buy_cards()
@@ -259,9 +251,7 @@ class Game:
             card = self.play_simple()
         return card
     
-    def uno(self):
-        player = self.player()
-        return player.uno()
+    def uno(self): return self.player.uno()
     
     def round(self):
         """
@@ -283,18 +273,14 @@ class Game:
             - age igual a carta simples com color especificada
         """
         
-        if self.uno():
-            return
+        if self.uno(): return
         
-        t = self.table_top()
-        player = self.player()
+        t = self.table_top
+        player = self.player
         
-        if t.type == CARDS_PLUS_2:
-            card = self.play_plus2()
-        elif t.type == CARDS_PLUS_4:
-            card = self.play_plus4()
-        else:
-            card = self.play_simple()
+        if t.type == CARDS_PLUS_2: card = self.play_plus2()
+        elif t.type == CARDS_PLUS_4: card = self.play_plus4()
+        else: card = self.play_simple()
         
         # ---------- debug -------------------
         self.history.append({

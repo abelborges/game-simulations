@@ -2,12 +2,14 @@ from math import floor
 import random
 import pandas
 
+pandas.set_option('display.max_colwidth', 1000)
+
 CARDS_BASIC = "basic"
-CARDS_PLUS_2 = "plus-2"
-CARDS_DIRECTION = "change-direction"
-CARDS_SKIP = "skip-next-player"
+CARDS_PLUS_2 = "plus2"
+CARDS_DIRECTION = "direction"
+CARDS_SKIP = "skip"
 CARDS_COLOR = "color"
-CARDS_PLUS_4 = "plus-4"
+CARDS_PLUS_4 = "plus4"
 
 CARDS_SIMPLE = [CARDS_BASIC, CARDS_DIRECTION, CARDS_SKIP]
 CARDS_JOKERS = [CARDS_COLOR, CARDS_PLUS_4]
@@ -145,7 +147,7 @@ class Player:
 
 class Game:
     
-    def __init__(self, n_players=4, debug=False):
+    def __init__(self, n_players=4, debug=True):
         cards = [Card(i) for i in range(N_CARDS)]
         random.shuffle(cards)
         
@@ -173,20 +175,29 @@ class Game:
             "card_id": table.id,
             "card_type": table.type,
             "card_color": table.color if table.color is not None else None,
-            "card_number": table.number if table.number is not None else -1
+            "card_number": table.number if table.number is not None else -1,
+            "color": "" if self.color is None else self.color,
+            "n_cards": self.n_cards,
+            "next_cards": self.player_cards
         }]
     
     @property
     def h(self): return pandas.DataFrame(self.history)
     
     @property
-    def n_cards(self): return [(p.id, len(p.cards)) for p in self.players]
+    def n_cards(self): return ','.join([str(len(p.cards)) for p in self.players])
     
     @property
     def table_top(self): return self.table[-1]
     
     @property
     def player(self): return self.players[self.player_id]
+
+    @property
+    def player_cards(self):
+        cards = ['_'.join([str(cc) for cc in (c.type if c.type != 'basic' else None, \
+            c.color, c.number) if cc is not None]) for c in self.player.cards]
+        return ','.join(cards)
 
     def update_table(self):
         old_table = self.table.copy()
@@ -221,9 +232,10 @@ class Game:
         
         if card is None:
             self.buy = 1
-            card = self.buy_cards().pop()
-            if card.is_playable(self.table_top, self.color):
-                self.play(card)
+            bought_card = self.buy_cards().pop()
+            if bought_card.is_playable(self.table_top, self.color):
+                self.play(bought_card)
+                card = bought_card
             else:
                 self.update_player()
         else: self.play(card)
@@ -289,12 +301,12 @@ class Game:
             "card_type": card.type if card is not None else None,
             "card_color": card.color if card is not None else None,
             "card_number": -1 if card is None else \
-                (card.number if card.number is not None else -1)
+                (card.number if card.number is not None else -1),
+            "color": "" if self.color is None else self.color,
+            "n_cards": self.n_cards,
+            "next_cards": self.player_cards
         })
         # ------------------------------------
         
-        if self.debug:
-            print(self.h)
-            print(self.n_cards)
-        
-        return self.uno()
+        if self.debug: print(self.h)
+        #return self.uno()

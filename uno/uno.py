@@ -138,7 +138,7 @@ class Player:
         self.cards.remove(card)
         return card
     
-    def play_plus2(self, buy):
+    def play_plus2(self):
         plus2 = [c for c in self.cards if c.type == CARDS_PLUS_2]
         if not plus2:
             return None
@@ -182,7 +182,9 @@ class Game:
             "card_id": table.id,
             "card_type": table.type,
             "card_color": table.color if table.color is not None else None,
-            "card_number": table.number if table.number is not None else -1
+            "card_number": table.number if table.number is not None else -1,
+            "color": "" if self.color is None else self.color,
+            "n_cards": self.n_cards
         }]
     
     @property
@@ -191,7 +193,7 @@ class Game:
     
     @property
     def n_cards(self):
-        return [(p.id, len(p.cards)) for p in self.players]
+        return ','.join([str(len(p.cards)) for p in self.players])
     
     def table_top(self):
         return self.table[-1]
@@ -303,12 +305,11 @@ class Game:
             "card_type": card.type if card is not None else None,
             "card_color": card.color if card is not None else None,
             "card_number": -1 if card is None else \
-                (card.number if card.number is not None else -1)
+                (card.number if card.number is not None else -1),
+            "color": "" if self.color is None else self.color,
+            "n_cards": self.n_cards
         })
         # ------------------------------------
         
-        if self.debug:
-            print(self.h)
-            print(self.n_cards)
-        
-        return self.uno()
+        if self.debug: print(self.h)
+        #return self.uno()

@@ -312,8 +312,3 @@ class Game:
             print(self.n_cards)
         
         return self.uno()
-
-if __name__ == "__main__":
-    g = Game(debug=True)
-
-

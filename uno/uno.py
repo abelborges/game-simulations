@@ -198,10 +198,10 @@ class Game:
     
     def update_table(self):
         old_table = self.table.copy()
+        top_card = old_table.pop()
         random.shuffle(old_table)
         self.cards = old_table
-        new_table = self.cards.pop()
-        self.table = [new_table]
+        self.table = [top_card]
     
     def buy_cards(self):
         bought = []

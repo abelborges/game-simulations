@@ -192,7 +192,7 @@ class Game:
     
     @property
     def table_top(self): return self.table[-1]
-    
+        
     @property
     def player(self): return self.players[self.player_id]
     

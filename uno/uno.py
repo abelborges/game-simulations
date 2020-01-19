@@ -1,8 +1,9 @@
 from math import floor
 import random
 import pandas
+import sys
 
-pandas.set_option('display.max_colwidth', 1000)
+# pandas.set_option('display.max_colwidth', 1000)
 
 CARDS_BASIC = "basic"
 CARDS_PLUS_2 = "plus2"
@@ -154,7 +155,7 @@ class Player:
 
 class Game:
     
-    def __init__(self, n_players=4, debug=True):
+    def __init__(self, n_players=4, debug=True, first_player=None):
         cards = [Card(i) for i in range(N_CARDS)]
         random.shuffle(cards)
         
@@ -166,9 +167,11 @@ class Game:
             players.append(Player(player_id, player_cards))
         table = cards.pop()
         
+        rand_first = random.choice([i for i in range(n_players)])
+        
         self.cards = cards
         self.players = players
-        self.player_id = 0
+        self.player_id = first_player if first_player is not None else rand_first
         self.table = [table]
         
         self.buy = 0
@@ -272,6 +275,7 @@ class Game:
         else: card = self.play_simple()
         
         self.finished = player.uno()
+        if self.finished: return player.id
         
         self.history.append({
             "pid": player.id,
@@ -294,3 +298,49 @@ class Game:
     
     def _n_cards(self):
         return ','.join([str(len(p.cards)) for p in self.players])
+
+
+def hist(x):
+    t = []
+    s = set(x)
+    for e in s: t.append((e, x.count(e)/len(x)))
+    return t
+
+def simu_winners(n, k=4):
+    players = [p for p in range(k)]
+    ids = []
+    for i in range(n): ids.append(random.choice(players))
+    return hist(ids)
+
+def game_winners(n, first=None):
+    ids = []
+    for _ in range(N):
+        g = Game(debug=False, first_player=first)
+        while True:
+            player_id = g.round()
+            if player_id is not None: break
+        ids.append(player_id)
+    return hist(ids)
+
+def randomness_check(N, K, first=None):
+    players = [0,1,2,3]
+    hists = []
+    for k in range(K):
+        if k % 10 == 0: print(k/K)
+        
+        game = game_winners(N, first)
+        simu = simu_winners(N)
+        h = dict()
+        for i in players:
+            h["game_p_" + str(i)] = game[i][1]
+            h["simu_p_" + str(i)] = simu[i][1]
+        hists.append(h)
+    df = pandas.DataFrame(hists)
+    first = first if first is not None else "rand"
+    df.to_csv("randomness_check_" + str(first) + ".csv", index=False)
+
+if __name__ == "__main__":
+    N, K = int(sys.argv[1]), int(sys.argv[2])
+    randomness_check(N, K, 0)
+    randomness_check(N, K)
+

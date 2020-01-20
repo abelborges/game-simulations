@@ -14,7 +14,7 @@ save_plot = function(fname) {
     h2 = rbind(h2, df_j)
   }
   
-  X11(width=8, height=6)
+  X11(width=7, height=5)
   par(mfrow=c(1,2))
   for(type in c("game", "simu")) {
     boxplot(prob ~ player, data=h2[h2$type==type,], main=type, ylim=c(.2, .3))

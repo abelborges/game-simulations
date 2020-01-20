@@ -2,6 +2,7 @@ from math import floor
 import random
 import pandas
 import sys
+import multiprocessing as mp
 
 # pandas.set_option('display.max_colwidth', 1000)
 
@@ -321,25 +322,25 @@ def game_winners(n, first=None):
         ids.append(player_id)
     return hist(ids)
 
-def randomness_check(N, K, first=None):
-    players = [0,1,2,3]
-    hists = []
-    for k in range(K):
-        if k % 10 == 0: print(k/K)
-        
-        game = game_winners(N, first)
-        simu = simu_winners(N)
-        h = dict()
-        for i in players:
-            h["game_p_" + str(i)] = game[i][1]
-            h["simu_p_" + str(i)] = simu[i][1]
-        hists.append(h)
-    df = pandas.DataFrame(hists)
-    first = first if first is not None else "rand"
-    df.to_csv("randomness_check_" + str(first) + ".csv", index=False)
+def randomness_check(N, first=None):
+    game = game_winners(N, first)
+    simu = simu_winners(N)
+    n_players = len(game)
+    h = dict()
+    for i in range(n_players):
+        h["game_p_" + str(i)] = game[i][1]
+        h["simu_p_" + str(i)] = simu[i][1]
+    return h
 
 if __name__ == "__main__":
     N, K = int(sys.argv[1]), int(sys.argv[2])
-    randomness_check(N, K, 0)
-    randomness_check(N, K)
+    pool = mp.Pool(processes=4)
 
+    future_rand = [pool.apply_async(randomness_check, (N, None)) for _ in range(K)]
+    future_0 = [pool.apply_async(randomness_check, (N, 0)) for _ in range(K)]
+    
+    res_rand = [fr.get() for fr in future_rand]
+    res_0 = [fr.get() for fr in future_0]
+
+    pandas.DataFrame(res_rand).to_csv("randomness_check_rand.csv", index=False)
+    pandas.DataFrame(res_0).to_csv("randomness_check_0.csv", index=False)

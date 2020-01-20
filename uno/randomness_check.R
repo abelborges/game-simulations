@@ -26,3 +26,4 @@ make_plot("randomness_check_0", main="start-with-player-0")
 par(mfrow=c(1,1))
 
 savePlot("randomness_check.png", type = "png")
+´

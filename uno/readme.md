@@ -33,10 +33,10 @@ compare the proportion of winnings for each player according to
 the Uno game simulations (`uno.game_winners`)
 versus sampling a random winner (`uno.simu_winners`).
 
-The graphics display boxplots of 100 proportions of victory,
+The graphics display boxplots of 1000 proportions of victory,
 each one of them being estimated through 1000 independent
 simulations, for both the game and pick-a-random-winner cases.
-In this case, the csv files were generated with `python uno.py 1000 100`.
+In this case, the csv files were generated with `python uno.py 1000 1000`.
 
 The median of player 0 when she always starts playing
 (bottom-left plot) is approximately 2 percentage points

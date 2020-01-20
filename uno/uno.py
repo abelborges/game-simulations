@@ -25,7 +25,7 @@ LENGTHS = {
     CARDS_PLUS_4: 4,
 }
 
-COLORS = ['red', 'green', 'blue', 'yellow']
+COLORS = ["red", "green", "blue", "yellow"]
 
 N_CARDS = sum(LENGTHS.values())
 N_COLORS = 4
@@ -99,7 +99,7 @@ class Card:
             return self.type == CARDS_PLUS_2 or self.color == table.color
     
     def __str__(self):
-        return '_'.join([str(a) for a in \
+        return "_".join([str(a) for a in \
             (self.type if self.type != CARDS_BASIC else None, \
             self.color, self.number) if a is not None])
 
@@ -146,12 +146,11 @@ class Player:
     
     def pick_color(self):
         colors = [c.color for c in self.cards if c.color is not None]
-        if not colors:
-            colors = [i for i in range(N_COLORS)]
+        if not colors: colors = COLORS
         return random.choice(colors)
     
     def __str__(self):
-        return ','.join([str(c) for c in self.cards])
+        return ",".join([str(c) for c in self.cards])
 
 class Game:
     
@@ -297,7 +296,7 @@ class Game:
     def _h(self): return pandas.DataFrame(self.history)
     
     def _n_cards(self):
-        return ','.join([str(len(p.cards)) for p in self.players])
+        return ",".join([str(len(p.cards)) for p in self.players])
 
 
 def hist(x):

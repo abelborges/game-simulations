@@ -1,5 +1,4 @@
-
-save_plot = function(fname) {
+make_plot = function(fname, main="") {
   h = read.csv(paste0(fname, ".csv"), T, sep=",", colClasses=rep("numeric", 8))
   N = nrow(h)
   cols = colnames(h)
@@ -14,15 +13,16 @@ save_plot = function(fname) {
     h2 = rbind(h2, df_j)
   }
   
-  X11(width=7, height=5)
-  par(mfrow=c(1,2))
   for(type in c("game", "simu")) {
-    boxplot(prob ~ player, data=h2[h2$type==type,], main=type, ylim=c(.2, .3))
+    boxplot(prob ~ player, data=h2[h2$type==type,], main=paste0(main, ": ", type), ylim=c(.2, .3))
     abline(h=0.25, lty=2, lwd=2)
   }
-  par(mfrow=c(1,1))
-  savePlot(paste0(fname, ".png"), type = "png")
 }
 
-save_plot("randomness_check_rand")
-save_plot("randomness_check_0")
+X11(width=7, height=7)
+par(mfrow=c(2,2))
+make_plot("randomness_check_rand", main="start-with-random-player")
+make_plot("randomness_check_0", main="start-with-player-0")
+par(mfrow=c(1,1))
+
+savePlot("randomness_check.png", type = "png")

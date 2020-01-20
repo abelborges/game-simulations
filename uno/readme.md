@@ -28,18 +28,16 @@ Assuming all players use the baseline strategy:
 
 > Does playing first increases the likelihood of winning?
 
-Apparently, yes. The files `randomness_check_*.png`
+Apparently, yes. The file `randomness_check.png`
 compare the proportion of winnings for each player according to
 the Uno game simulations (`uno.game_winners`)
-versus choosing a winner at random (`uno.simu_winners`).
+versus sampling a random winner (`uno.simu_winners`).
 
 The graphics display boxplots of 100 proportions of victory,
 each one of them being estimated through 1000 independent
 simulations, for both the game and pick-a-random-winner cases.
 In this case, the csv files were generated with `python uno.py 1000 100`.
 
-The `rand` sufix means that the first player was chosen randomly.
-The `0` sufix means the player labeled as "0" is always the first.
-
-The median of player 0 when she always starts playing is approximately
-**2 percentage points** greater than in the random-first-player case.
+The median of player 0 when she always starts playing
+(bottom-left plot) is approximately 2 percentage points
+greater than in the random-first-player case.

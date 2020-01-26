@@ -4,8 +4,6 @@ import pandas
 import sys
 import multiprocessing as mp
 
-# pandas.set_option('display.max_colwidth', 1000)
-
 CARDS_BASIC = "basic"
 CARDS_PLUS_2 = "plus2"
 CARDS_DIRECTION = "direction"
@@ -309,7 +307,7 @@ def hist(x):
 def simu_winners(n, k=4):
     players = [p for p in range(k)]
     ids = []
-    for i in range(n): ids.append(random.choice(players))
+    for _ in range(n): ids.append(random.choice(players))
     return hist(ids)
 
 def game_winners(n, first=None):
@@ -339,8 +337,8 @@ if __name__ == "__main__":
     future_rand = [pool.apply_async(randomness_check, (N, None)) for _ in range(K)]
     future_0 = [pool.apply_async(randomness_check, (N, 0)) for _ in range(K)]
     
-    res_rand = [fr.get() for fr in future_rand]
-    res_0 = [fr.get() for fr in future_0]
+    res_rand = [f.get() for f in future_rand]
+    res_0 = [f.get() for f in future_0]
 
     pandas.DataFrame(res_rand).to_csv("randomness_check_rand.csv", index=False)
     pandas.DataFrame(res_0).to_csv("randomness_check_0.csv", index=False)

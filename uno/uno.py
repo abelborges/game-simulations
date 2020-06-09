@@ -3,6 +3,7 @@ import random
 import pandas
 import sys
 import multiprocessing as mp
+import csv
 
 CARDS_BASIC = "basic"
 CARDS_PLUS_2 = "plus2"
@@ -150,10 +151,13 @@ class Player:
     
     def __str__(self):
         return ",".join([str(c) for c in self.cards])
+    
+    def card_ids(self):
+        return ",".join([str(c.id) for c in self.cards])
 
 class Game:
     
-    def __init__(self, n_players=4, debug=True, first_player=None):
+    def __init__(self, n_players=4, debug=False, first_player=None, game_id=None):
         cards = [Card(i) for i in range(N_CARDS)]
         random.shuffle(cards)
         
@@ -167,6 +171,9 @@ class Game:
         
         rand_first = random.choice([i for i in range(n_players)])
         
+        self.game_id = game_id
+        self.round_id = 0
+        
         self.cards = cards
         self.players = players
         self.player_id = first_player if first_player is not None else rand_first
@@ -179,13 +186,16 @@ class Game:
         
         self.debug = debug
         self.history = [{
-            "pid": -1,
-            "cid": table.id,
-            "cty": table.type,
-            "ccol": table.color if table.color is not None else "",
-            "cnum": table.number if table.number is not None else -1,
-            "col": "" if self.color is None else self.color,
-            "ns": self._n_cards()
+            "game_id": game_id,
+            "round_id": 0,
+            "player_id": -1,
+            "card_id": table.id,
+            "card_type": table.type,
+            "card_color": table.color if table.color is not None else "",
+            "card_number": table.number if table.number is not None else -1,
+            "requested_color": "" if self.color is None else self.color,
+            "hands_cards": ";".join([str(p.id) + ":" + str(p) for p in self.players]),
+            "hands_ids": ";".join([str(p.id) + ":" + p.card_ids() for p in self.players])
         }]
     
     @property
@@ -265,6 +275,8 @@ class Game:
         if self.finished:
             return
         
+        self.round_id += 1
+        
         t = self.table_top
         player = self.player
         
@@ -272,73 +284,43 @@ class Game:
         elif t.type == CARDS_PLUS_4: card = self.play_plus4()
         else: card = self.play_simple()
         
-        self.finished = player.uno()
-        if self.finished: return player.id
-        
         self.history.append({
-            "pid": player.id,
-            "cid": card.id if card is not None else -1,
-            "cty": card.type if card is not None else None,
-            "ccol": card.color if card is not None else None,
-            "cnum": -1 if card is None else \
+            "game_id": self.game_id,
+            "round_id": self.round_id,
+            "player_id": player.id,
+            "card_id": card.id if card is not None else -1,
+            "card_type": card.type if card is not None else None,
+            "card_color": card.color if card is not None else None,
+            "card_number": -1 if card is None else \
                 (card.number if card.number is not None else -1),
-            "col": "" if self.color is None else self.color,
-            "ns": self._n_cards()
+            "requested_color": "" if self.color is None else self.color,
+            "hands_cards": ";".join([str(p.id) + ":" + str(p) for p in self.players]),
+            "hands_ids": ";".join([str(p.id) + ":" + p.card_ids() for p in self.players])
         })
+        
+        self.finished = player.uno()
+        if self.finished:
+            return player.id
         
         if self.debug:
             print(self._h())
-            print("\n")
-            for player in self.players:
-                print(str(player.id) + ": " + str(player))
     
     def _h(self): return pandas.DataFrame(self.history)
     
     def _n_cards(self):
         return ",".join([str(len(p.cards)) for p in self.players])
 
-
-def hist(x):
-    t = []
-    s = set(x)
-    for e in s: t.append((e, x.count(e)/len(x)))
-    return t
-
-def simu_winners(n, k=4):
-    players = [p for p in range(k)]
-    ids = []
-    for _ in range(n): ids.append(random.choice(players))
-    return hist(ids)
-
-def game_winners(n, first=None):
-    ids = []
-    for _ in range(N):
-        g = Game(debug=False, first_player=first)
-        while True:
-            player_id = g.round()
-            if player_id is not None: break
-        ids.append(player_id)
-    return hist(ids)
-
-def randomness_check(N, first=None):
-    game = game_winners(N, first)
-    simu = simu_winners(N)
-    n_players = len(game)
-    h = dict()
-    for i in range(n_players):
-        h["game_p_" + str(i)] = game[i][1]
-        h["simu_p_" + str(i)] = simu[i][1]
-    return h
+def play(game_id):
+    g = Game(game_id=game_id)
+    while True:
+        if g.round() is not None:
+            break
+    d = g._h().copy()
+    d.to_csv(f"data/game_{game_id}.csv", quoting=csv.QUOTE_ALL, index=False)
 
 if __name__ == "__main__":
-    N, K = int(sys.argv[1]), int(sys.argv[2])
+    n_games = int(sys.argv[1])
     pool = mp.Pool(processes=4)
-
-    future_rand = [pool.apply_async(randomness_check, (N, None)) for _ in range(K)]
-    future_0 = [pool.apply_async(randomness_check, (N, 0)) for _ in range(K)]
     
-    res_rand = [f.get() for f in future_rand]
-    res_0 = [f.get() for f in future_0]
-
-    pandas.DataFrame(res_rand).to_csv("randomness_check_rand.csv", index=False)
-    pandas.DataFrame(res_0).to_csv("randomness_check_0.csv", index=False)
+    for game_id in range(n_games):
+        pool.apply_async(play, (game_id,)).get()
